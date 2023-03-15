@@ -3,8 +3,6 @@ import glob
 import pandas as pd
 
 storages_list = ['IN_825', 'R12_825']
-groups_tg_list = ['30', '31', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '43',
-                  '44', '45', '46', '47', '48', '49', 'Z7']
 
 
 def read_check_file(dir_name):
@@ -19,16 +17,30 @@ def read_check_file(dir_name):
         print(file, len(df_temp))
         df_union = pd.concat([df_union, df_temp])
     print(f'длина до объединения: {len(df_union)}')
+
+    with pd.ExcelWriter('общий журнал.xlsx', engine='xlsxwriter') as writer:
+        df_union.to_excel(writer, index=False, header=True, na_rep='')
+
+    df_union = df_union[~(df_union['Инвентарная разница'].isnull())]
+
+    with pd.ExcelWriter('общие расхождения.xlsx', engine='xlsxwriter') as writer:
+        df_union.to_excel(writer, index=False, header=True, na_rep='')
+
+    with pd.ExcelWriter('По складам количество расхождений.xlsx', engine='xlsxwriter') as writer:
+        df_union_sklads = df_union.groupby(['Склад'], as_index=False).agg({
+            'Инвентарная разница': 'count',
+        })
+        df_union_sklads.to_excel(writer, index=False, header=True, na_rep='')
+    print(df_union_sklads)
     df_union_art = df_union.groupby(['Код номенклатуры'], as_index=False).agg({
         'Модель': 'first',
         'Товарная группа': 'first',
         'Инвентарная разница': 'sum',
         'Себестоимость': 'first',
     })
-    df_union_art = df_union_art.assign(Сумма=df_union_art['Инвентарная разница'] * df_union_art['Себестоимость'])
-    df_union_art = df_union_art[df_union_art['Инвентарная разница'] != 0]
-
     df_union_art['Товарная группа'] = df_union_art['Товарная группа'].astype('string')
+    df_union_art = df_union_art.assign(Сумма=df_union_art['Инвентарная разница'] * df_union_art['Себестоимость'])
+    print(f'длина после объединения: {len(df_union_art)}')
 
     with pd.ExcelWriter('Сводка.xlsx', engine='xlsxwriter') as writer:
         df_union_art2 = df_union_art.groupby(['Товарная группа'], as_index=False).agg({
@@ -49,15 +61,14 @@ def read_check_file(dir_name):
         worksheet.set_column('A:F', 20)
         worksheet.set_column('B:B', 60)
 
-    print(f'длина после объединения: {len(df_union_art)}')
-    tg_list = df_union_art['Товарная группа'].unique().tolist()
+    tg_list = sorted(df_union_art['Товарная группа'].unique().tolist())
     list_art_tg = df_union_art['Код номенклатуры'].unique().tolist()
 
     list_zal = ['A11_825', 'V_825']
     list_sklad = ['011_825', '012_825']
 
     with pd.ExcelWriter('Расхождения по тг Зал.xlsx', engine='xlsxwriter') as writer:
-        df_sklad = pd.read_excel('/home/mikhail/Downloads/mishafrishkinloh.xlsx', skiprows=14,
+        df_sklad = pd.read_excel(r'C:\Users\result_inventory\mishafrishkinloh.xlsx', skiprows=14,
                                  usecols=['Склад', 'Местоположение', 'Код \nноменклатуры', 'Описание товара',
                                           'ТГ', 'НГ', 'Физические \nзапасы', 'Передано на доставку',
                                           'Продано', 'Зарезерви\nровано', 'Доступно'])
@@ -99,4 +110,4 @@ def set_column2(df, worksheet):
 
 
 if __name__ == '__main__':
-    read_check_file('/home/mikhail/Downloads/инвентура/Журналы инвентуры')
+    read_check_file(r'C:\Users\result_inventory\журналы')
