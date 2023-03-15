@@ -89,6 +89,28 @@ def read_check_file(dir_name):
             except Exception as ex:
                 print(f'{tg} {ex}')
 
+    with pd.ExcelWriter('Расхождения по тг склад.xlsx', engine='xlsxwriter') as writer:
+        df_sklad = pd.read_excel(r'C:\Users\result_inventory\mishafrishkinloh.xlsx', skiprows=14,
+                                 usecols=['Склад', 'Местоположение', 'Код \nноменклатуры', 'Описание товара',
+                                          'ТГ', 'НГ', 'Физические \nзапасы', 'Передано на доставку',
+                                          'Продано', 'Зарезерви\nровано', 'Доступно'])
+
+        for tg in tg_list:
+            try:
+                temp_df = df_union_art[df_union_art['Товарная группа'] == tg]
+
+                temp_df.to_excel(writer, sheet_name=f'{tg}', index=False, header=True, na_rep='')
+                worksheet = writer.sheets[f'{tg}']
+                set_column(temp_df, worksheet)
+
+                df_sklad_tg = df_sklad[(df_sklad['ТГ'] == tg) & (df_sklad['Код \nноменклатуры'].isin(list_art_tg))
+                                       & df_sklad['Склад'].isin(list_sklad)]
+                df_sklad_tg.to_excel(writer, sheet_name=f'Складские лоты ТГ{tg}', index=False, header=True, na_rep='')
+                worksheet = writer.sheets[f'Складские лоты ТГ{tg}']
+                set_column2(df_sklad_tg, worksheet)
+            except Exception as ex:
+                print(f'{tg} {ex}')
+
 
 def set_column(df, worksheet):
     (max_row, max_col) = df.shape
